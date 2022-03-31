@@ -1,0 +1,130 @@
+from msilib.schema import CustomAction
+import boto3
+import json
+from custom_encoder import CustomEncoder
+import logging
+logger = logging.getLogger()
+logger.setlevel(logging.INFO)
+
+dynamodbTableName = 'product-inventory'
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(dynamodbTableName)
+
+getMethod = 'GET'
+postMethod = 'POST'
+patchMethod = 'PATCH'
+deleteMethod = 'DELETE'
+healthPath = '/health'
+productPath = '/product'
+productsPath = 'products'
+
+def lambda_handler(event, context):
+    logger.info(event)
+    httpMethod = event['httpMethod']
+    path = event['path']
+    if httpMethod == getMethod and path == healthPath:
+        response = buildResponse(200)
+    elif httpMethod == getMethod and path == productPath:
+        response = getProduct(event['queryStringParameters']['productId'])
+    elif httpMethod == getMethod and path == productsPath:
+        response = getProducts()
+    elif httpMethod == postMethod and path == productPath:
+        response = saveProduct(json.loads(event['body']))
+    elif httpMethod == patchMethod and path == productPath:
+        requestBody = json.loads(event['body'])
+        response = modifyProduct(requestBody['productId'], requestBody['updateKey'], requestBody['updateValue'])
+    elif httpMethod == deleteMethod and path == productPath:
+        requestBody = json.loads(event['body'])
+        response = deleteProduct(requestBody['productId'])
+    else:
+        response = buildResponse(404, 'Not Found')
+    
+    return response
+
+
+
+
+
+
+
+    elif httpMethod == getMethod and path == productPath:
+        response = 
+
+
+def getProduct(productId):
+    try:
+        response = table.get_item(
+            Key={
+                'productId': productId
+            }
+        )
+        if 'Item' in response:
+            return buildResponse(200, response['Item'])
+        else:
+            return buildResponse(404, {'Message': 'Product %s not found' % productId})
+    except:
+        logger.exception('textA')
+
+def getProducts(productId):
+    try:
+        response = table.scan()
+        result = response['Item']
+
+        while 'LastEvaluatedKey' in response:
+            response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            result.extend(response['Item'])
+
+        body = {
+            'products': response
+        }
+        return buildResponse(200, body)
+    
+    except:
+        logger.exception('Text B')
+
+def saveProduct(requestBody):
+    try:
+        table.put_item(Item=requestBody)
+        body = {
+            'Operation': 'SAVE',
+            'Message': 'SUCCES',
+            'Item': requestBody
+        }
+        return buildResponse(200, body)
+    except:
+        logger.exception('Text C')
+
+def modifyProduct (productId, updateKey, updateValue):
+    try:
+        response = table.update_item(
+            Key={
+                'productId': productId
+            },
+            UpdateExpression='set %s = :value' % updateKey,
+            ExpressionAttributeValues={
+                'value': updateValue
+            },
+            ReturnValues='UPDATED_NEW'
+        )
+        body = {
+            'Operation': 'UPDATE',
+            'Message': 'SUCCES',
+            'UppdatedAttributes': response
+        }
+        return buildResponse(200, body)
+    except:
+        logger.exception('Text D')
+
+
+def buildResponse(statusCode, body=None):
+    response = {
+        'statusCode': statusCode,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        }
+    }
+    if body is not None:
+        response['body'] = json.dumps(body, cls=CustomEncoder)
+    return response
+
