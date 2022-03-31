@@ -42,15 +42,6 @@ def lambda_handler(event, context):
     return response
 
 
-
-
-
-
-
-    elif httpMethod == getMethod and path == productPath:
-        response = 
-
-
 def getProduct(productId):
     try:
         response = table.get_item(
@@ -65,17 +56,17 @@ def getProduct(productId):
     except:
         logger.exception('textA')
 
-def getProducts(productId):
+def getProducts():
     try:
         response = table.scan()
-        result = response['Item']
+        result = response['Items']
 
         while 'LastEvaluatedKey' in response:
             response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-            result.extend(response['Item'])
+            result.extend(response['Items'])
 
         body = {
-            'products': response
+            'products': result
         }
         return buildResponse(200, body)
     
@@ -115,6 +106,22 @@ def modifyProduct (productId, updateKey, updateValue):
     except:
         logger.exception('Text D')
 
+def deleteProduct(productId):
+    try:
+        response = table.delete_item(
+            Key={
+                'productId': productId
+            },
+            ReturnValues='ALL_OLD'
+        )
+        body = {
+            'Operation': 'DELETE',
+            'Message': 'SUCCES',
+            'deleteItem': response
+        }
+        return buildResponse (200, body)
+    except:
+        logger.exception('Text E')
 
 def buildResponse(statusCode, body=None):
     response = {
